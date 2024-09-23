@@ -1,0 +1,116 @@
+diff --git a/node_modules/scratch-vm/src/blocks/scratch3_looks.js b/node_modules/scratch-vm/src/blocks/scratch3_looks.js
+index 18e163a..9e13a87 100644
+--- a/node_modules/scratch-vm/src/blocks/scratch3_looks.js
++++ b/node_modules/scratch-vm/src/blocks/scratch3_looks.js
+@@ -35,6 +35,7 @@ class Scratch3LooksBlocks {
+ 
+         // Enable other blocks to use bubbles like ask/answer
+         this.runtime.on(Scratch3LooksBlocks.SAY_OR_THINK, this._updateBubble);
++        this.runtime.on(Scratch3LooksBlocks.SAY_OR_THINK_MORE, this._updateBubblemore);
+     }
+ 
+     /**
+@@ -278,6 +279,14 @@ class Scratch3LooksBlocks {
+         this._renderBubble(target);
+     }
+ 
++        _updateBubblemore (target, type, text) {
++        const bubbleState = this._getBubbleState(target);
++        bubbleState.type = type;
++        bubbleState.text += this._formatBubbleText(text);
++        bubbleState.usageId = uid();
++        this._renderBubble(target);
++    }
++
+     /**
+      * Retrieve the block primitives implemented by this package.
+      * @return {object.<string, Function>} Mapping of opcode to Function.
+@@ -285,8 +294,10 @@ class Scratch3LooksBlocks {
+     getPrimitives () {
+         return {
+             looks_say: this.say,
++            looks_say_more: this.say_more,
+             looks_sayforsecs: this.sayforsecs,
+             looks_think: this.think,
++            looks_think_more: this.think_more,
+             looks_thinkforsecs: this.thinkforsecs,
+             looks_show: this.show,
+             looks_hide: this.hide,
+@@ -332,6 +343,11 @@ class Scratch3LooksBlocks {
+         this.runtime.emit(Scratch3LooksBlocks.SAY_OR_THINK, util.target, 'say', args.MESSAGE);
+     }
+ 
++    say_more (args, util) {
++        // @TODO in 2.0 calling say/think resets the right/left bias of the bubble
++    this._updateBubblemore(util.target, 'say', args.MESSAGE);
++    }    
++
+     sayforsecs (args, util) {
+         this.say(args, util);
+         const target = util.target;
+@@ -352,6 +368,10 @@ class Scratch3LooksBlocks {
+         this.runtime.emit(Scratch3LooksBlocks.SAY_OR_THINK, util.target, 'think', args.MESSAGE);
+     }
+ 
++    think_more (args, util) {
++        this._updateBubblemore(util.target, 'think', args.MESSAGE);
++    }
++
+     thinkforsecs (args, util) {
+         this.think(args, util);
+         const target = util.target;
+diff --git a/node_modules/scratch-vm/src/extension-support/extension-manager.js b/node_modules/scratch-vm/src/extension-support/extension-manager.js
+index 94ce3b1..33cf365 100644
+--- a/node_modules/scratch-vm/src/extension-support/extension-manager.js
++++ b/node_modules/scratch-vm/src/extension-support/extension-manager.js
+@@ -19,11 +19,20 @@ const builtinExtensions = {
+     microbit: () => require('../extensions/scratch3_microbit'),
+     text2speech: () => require('../extensions/scratch3_text2speech'),
+     translate: () => require('../extensions/scratch3_translate'),
+-    videoSensing: () => require('../extensions/scratch3_video_sensing'),
++    //videoSensing: () => require('../extensions/scratch3_video_sensing'),
+     ev3: () => require('../extensions/scratch3_ev3'),
+     makeymakey: () => require('../extensions/scratch3_makeymakey'),
+     boost: () => require('../extensions/scratch3_boost'),
+-    gdxfor: () => require('../extensions/scratch3_gdx_for')
++    gdxfor: () => require('../extensions/scratch3_gdx_for'),
++    planetemaths: () => require('../extensions/scratch3_pm'),
++    bodydetection:() => require('../extensions/scratch3_bodydetection'),
++    qrcode:() => require('../extensions/scratch3_qrcode'),
++    ml:()   => require('../extensions/scratch3_ml'),
++    handpose:()   => require('../extensions/scratch3_handpose'),
++    facemesh:()   => require('../extensions/scratch3_facemesh'),
++    microbitMore:() => require('../extensions/microbitMore'),
++    tm:() => require('../extensions/scratch3_tm'),
++    text: () => require('../extensions/scratch3_text')
+ };
+ 
+ /**
+diff --git a/node_modules/scratch-vm/src/io/video.js b/node_modules/scratch-vm/src/io/video.js
+index 23dce8b..f1b62a5 100644
+--- a/node_modules/scratch-vm/src/io/video.js
++++ b/node_modules/scratch-vm/src/io/video.js
+@@ -82,9 +82,9 @@ class Video {
+      *
+      * @return {Promise.<Video>} resolves a promise to this IO device when video is ready.
+      */
+-    enableVideo () {
++    enableVideo (cam) {
+         if (!this.provider) return null;
+-        return this.provider.enableVideo().then(() => this._setupPreview());
++        return this.provider.enableVideo(cam).then(() => this._setupPreview());
+     }
+ 
+     /**
+diff --git a/node_modules/scratch-vm/src/virtual-machine.js b/node_modules/scratch-vm/src/virtual-machine.js
+index 64ad793..0f78b4f 100644
+--- a/node_modules/scratch-vm/src/virtual-machine.js
++++ b/node_modules/scratch-vm/src/virtual-machine.js
+@@ -36,6 +36,7 @@ const CORE_EXTENSIONS = [
+     // 'operators',
+     // 'variables',
+     // 'myBlocks'
++    'pen'
+ ];
+ 
+ /**

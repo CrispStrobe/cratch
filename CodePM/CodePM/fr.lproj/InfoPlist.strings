@@ -1,0 +1,5 @@
+NSBluetoothAlwaysUsageDescription="L'application utilise le Bluetooth pour communiquer avec des périphériques externes.";
+NSBluetoothPeripheralUsageDescription="L'application utilise le Bluetooth pour communiquer avec des périphériques externes.";
+NSCameraUsageDescription="L'application utilise la caméra pour pouvoir récupérer des images.";
+NSMicrophoneUsageDescription="L'application utilise le micro pour pouvoir enregistrer des sons.";
+NSSpeechRecognitionUsageDescription="L'application utilise la reconnaissance de voix pour pouvoir reconnaître votre voix.";
