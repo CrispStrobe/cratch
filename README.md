@@ -28,6 +28,7 @@ Une fois le projet cloné, rendez-vous dans le répertoire du projet et exécute
 
 ```bash
 cd app
+chmod +x install.sh
 ./install.sh
 ```
 
