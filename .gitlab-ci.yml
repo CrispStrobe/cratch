@@ -4,7 +4,9 @@ pages:
   script:
     - |
       mkdir .public
-      cp -r web/* public/
+      cp -r ./web/* .public
+      rm -rf public
+      mv .public public
   artifacts:
     paths:
       - public
