@@ -1,6 +1,5 @@
 pages:
   stage: deploy
-  environment: production
   script:
     - echo "Déploiement de CodePM depuis le dossier public"
   artifacts:
