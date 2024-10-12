@@ -1,27 +1,12 @@
-stages:
-  - install
-  - build
-
-variables:
-  NODE_ENV: "production"
-  BUILD_MODE: "dist"
-  NODE_OPTIONS: "--max-old-space-size=8192"
-
-install_dependencies:
-  stage: install
-  image: node:16
+pages:
+  stage: deploy
+  environment: production
   script:
-    - chmod +x install.sh
-    - ./install.sh
+    - |
+      mkdir .public
+      cp -r web/* public/
   artifacts:
     paths:
-      - node_modules/
-
-build_project:
-  stage: build
-  image: node:16
-  script:
-    - npm run build
-  artifacts:
-    paths:
-      - dist/
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
