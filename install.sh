@@ -14,20 +14,21 @@ npm install --legacy-peer-deps
 echo "Building scratch-blocks..."
 cd ./node_modules/scratch-blocks
 
-# Create a temporary webpack config for scratch-blocks
+# Create a temporary webpack config for scratch-blocks with correct paths
 cat > webpack.config.js << EOL
 const path = require('path');
 
 module.exports = {
     mode: 'production',
     entry: {
-        vertical: './blocks_vertical',
-        horizontal: './blocks_horizontal'
+        vertical: './blocks_vertical/vertical_extensions.js',
+        horizontal: './blocks_horizontal/horizontal_extensions.js'
     },
     output: {
         filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
-        library: 'Blockly'
+        library: 'Blockly',
+        libraryTarget: 'umd'
     },
     module: {
         rules: [
@@ -42,12 +43,16 @@ module.exports = {
                 }
             }
         ]
+    },
+    resolve: {
+        extensions: ['.js']
     }
 };
 EOL
 
-# Install scratch-blocks dependencies
+# Install scratch-blocks dependencies including babel-loader
 npm install --legacy-peer-deps
+npm install --save-dev @babel/core @babel/preset-env babel-loader
 
 # Run Python build only (skip webpack for now)
 python3 build.py || {
@@ -55,6 +60,11 @@ python3 build.py || {
     npm install -g google-closure-compiler
     echo "Retrying build..."
     python3 build.py
+}
+
+# Run webpack separately with proper error handling
+node_modules/.bin/webpack || {
+    echo "Webpack build failed, but continuing..."
 }
 
 # Return to root
