@@ -1,67 +1,38 @@
-# Mac OS
-.DS_Store
-
-# NPM
-/node_modules
-npm-*
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
 
 # Testing
-/.nyc_output
 /coverage
 
-# Build
+# Production
 /build
 /dist
-/.opt-in
 
-# Generated translation files
-/translations
-/locale
-
-# Other generated source
-/src/generated
-
-# Downloaded during "npm install"
-/static/microbit
-
-# for act
-.secrets
-
-# Xcode
+# Misc
 .DS_Store
-build/
-DerivedData/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-xcuserdata/
-*.xcscmblueprint
-*.xccheckout
-
-# Swift Package Manager
-Packages
-*.xcodeproj/project.xcworkspace/xcuserdata/
-.swiftpm/
-.build/
-
-# CocoaPods
-Pods/
-Podfile.lock
-*.xcworkspace
-
-# Carthage
-Carthage/Build/
-
-# WebView & Scratch specific files
-node_modules/
-dist/
-*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env
 
-# Exclude Personal Data
-*.xcuserstate
-UserInterfaceState.xcuserstate
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Backup files
+*.bkp
+*.bkp[0-9]
+*.backup
+
+# Cache
+.cache/
