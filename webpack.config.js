@@ -5,193 +5,293 @@ const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-// PostCss
+// PostCSS Plugins
 const autoprefixer = require('autoprefixer');
 const postcssVars = require('postcss-simple-vars');
 const postcssImport = require('postcss-import');
 
-const ScratchWebpackConfigBuilder = require('scratch-webpack-configuration');
+// Determine if we're building for production or development
+const isProduction = process.env.NODE_ENV === 'production' || process.env.BUILD_MODE === 'dist';
 
-// const STATIC_PATH = process.env.STATIC_PATH || '/static';
+module.exports = {
+  mode: isProduction ? 'production' : 'development',
 
-const baseConfig = new ScratchWebpackConfigBuilder(
-    {
-        rootPath: path.resolve(__dirname),
-        enableReact: true
-    })
-    .setTarget('browserslist')
-    .merge({
-        output: {
-            assetModuleFilename: 'static/assets/[name].[hash][ext][query]',
-            library: {
-                name: 'GUI',
-                type: 'umd2'
-            }
+  entry: isProduction
+    ? {
+        'scratch-gui': path.join(__dirname, 'src/index.js'),
+      }
+    : {
+        gui: './src/playground/index.jsx',
+        blocksonly: './src/playground/blocks-only.jsx',
+        compatibilitytesting: './src/playground/compatibility-testing.jsx',
+        player: './src/playground/player.jsx',
+      },
+
+  output: {
+    path: isProduction
+      ? path.resolve(__dirname, 'dist')
+      : path.resolve(__dirname, 'build'),
+    filename: '[name].bundle.js',
+    library: {
+      name: 'GUI',
+      type: 'umd',
+    },
+    assetModuleFilename: 'static/assets/[name].[hash][ext][query]',
+    publicPath: '/',
+  },
+
+  resolve: {
+    extensions: ['.js', '.jsx'],
+    fallback: {
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/'),
+      process: require.resolve('process/browser'),
+    },
+    alias: {
+      '@images': path.resolve(__dirname, 'src/images'),
+      '@components': path.resolve(__dirname, 'src/components'),
+      '@assets': path.resolve(__dirname, 'src/assets')
+    }
+  },
+
+  module: {
+    rules: [
+      // JavaScript and JSX files
+      {
+        test: /\.(js|jsx)$/,
+        include: [
+          path.resolve(__dirname, 'src'),
+          path.resolve(__dirname, 'node_modules/scratch-paint'),
+          path.resolve(__dirname, 'node_modules/scratch-render'),
+        ],
+        use: {
+          loader: 'babel-loader',
+          options: {
+            cacheDirectory: true, // Webpack 5's built-in caching
+          },
         },
-        resolve: {
-            fallback: {
-                Buffer: require.resolve('buffer/'),
-                stream: require.resolve('stream-browserify')
-            }
-        },
-        optimization: {
-            splitChunks: {
-                chunks: 'all'
-            },
-            mergeDuplicateChunks: true,
-            runtimeChunk: 'single'
-        }
-    })
-    .addModuleRule({
-        test: /\.css$/,
+      },
+      // CSS Modules
+      {
+        test: /\.module\.css$/,
         use: [
-            {
-                loader: 'style-loader'
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              modules: {
+                localIdentName: '[name]__[local]___[hash:base64:5]',
+              },
+              importLoaders: 1,
             },
-            {
-                loader: 'css-loader',
-                options: {
-                    modules: {
-                        localIdentName: '[name]_[local]_[hash:base64:5]'
-                    },
-                    importLoaders: 1,
-                    localsConvention: 'camelCase'
-                }
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [postcssImport, postcssVars, autoprefixer],
+              },
             },
-            {
-                loader: 'postcss-loader',
-                options: {
-                    ident: 'postcss',
-                    plugins: function () {
-                        return [
-                            postcssImport,
-                            postcssVars,
-                            autoprefixer
-                        ];
-                    }
-                }
-            }
-        ]
-    })
-    .addModuleRule({
-        test: /\.(svg|png|wav|mp3|gif|jpg)$/,
-        resourceQuery: /^$/, // reject any query string
-        type: 'asset' // let webpack decide on the best type of asset
-    })
-
-    .addModuleRule({
+          },
+        ],
+      },
+      // Global CSS
+      {
+        test: /\.css$/,
+        exclude: /\.module\.css$/,
+        use: [
+          'style-loader',
+          'css-loader',
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [postcssImport, postcssVars, autoprefixer],
+              },
+            },
+          },
+        ],
+      },
+      // Asset handling for images and audio
+      {
+        test: /\.(png|jpg|jpeg|gif|mp3|wav)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/assets/[name].[hash][ext][query]',
+        },
+      },
+      // Handle .hex files
+      {
         test: /\.hex$/,
-        type: 'asset/resource'
-    })
-
-    .addPlugin(new webpack.ProvidePlugin({
-        Buffer: ['buffer', 'Buffer']
-    }))
-    .addPlugin(new webpack.DefinePlugin({
-        'process.env.DEBUG': Boolean(process.env.DEBUG),
-        'process.env.GA_ID': `"${process.env.GA_ID || 'UA-000000-01'}"`,
-        'process.env.GTM_ENV_AUTH': `"${process.env.GTM_ENV_AUTH || ''}"`,
-        'process.env.GTM_ID': process.env.GTM_ID ? `"${process.env.GTM_ID}"` : null
-    }))
-    .addPlugin(new CopyWebpackPlugin({
-        patterns: [
-            {
-                from: 'node_modules/scratch-blocks/media',
-                to: 'static/blocks-media/default'
-            },
-            {
-                from: 'node_modules/scratch-blocks/media',
-                to: 'static/blocks-media/high-contrast'
-            },
-
-
-            {
-                // overwrite some of the default block media with high-contrast versions
-                // this entry must come after copying scratch-blocks/media into the high-contrast directory
-                from: 'src/lib/themes/high-contrast/blocks-media',
-                to: 'static/blocks-media/high-contrast',
-                force: true
-            },
-            {
-                context: 'node_modules/scratch-vm/dist/web',
-                from: 'extension-worker.{js,js.map}',
-                noErrorOnMissing: true
-            }
-        ]
-    }));
-
-if (!process.env.CI) {
-    baseConfig.addPlugin(new webpack.ProgressPlugin());
-}
-
-// build the shipping library in `dist/`
-const distConfig = baseConfig.clone()
-    .merge({
-        entry: {
-            'scratch-gui': path.join(__dirname, 'src/index.js')
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/hex/[name].[hash][ext][query]',
         },
-        output: {
-            path: path.resolve(__dirname, 'dist')
-        }
-    });
-
-// build the examples and debugging tools in `build/`
-const buildConfig = baseConfig.clone()
-    .enableDevServer(process.env.PORT || 8602)
-    .merge({
-        entry: {
-            gui: './src/playground/index.jsx',
-            blocksonly: './src/playground/blocks-only.jsx',
-            compatibilitytesting: './src/playground/compatibility-testing.jsx',
-            player: './src/playground/player.jsx'
-        },
-        output: {
-            path: path.resolve(__dirname, 'build')
-        }
-    })
-    .addPlugin(new HtmlWebpackPlugin({
-        chunks: ['gui'],
-        template: 'src/playground/index.ejs',
-        title: 'CodePM'
-    }))
-    .addPlugin(new HtmlWebpackPlugin({
-        chunks: ['blocksonly'],
-        filename: 'blocks-only.html',
-        template: 'src/playground/index.ejs',
-        title: 'Scratch 3.0 GUI: Blocks Only Example'
-    }))
-    .addPlugin(new HtmlWebpackPlugin({
-        chunks: ['compatibilitytesting'],
-        filename: 'compatibility-testing.html',
-        template: 'src/playground/index.ejs',
-        title: 'Scratch 3.0 GUI: Compatibility Testing'
-    }))
-    .addPlugin(new HtmlWebpackPlugin({
-        chunks: ['player'],
-        filename: 'player.html',
-        template: 'src/playground/index.ejs',
-        title: 'Scratch 3.0 GUI: Player Example'
-    }))
-    .addPlugin(new CopyWebpackPlugin({
-        patterns: [
-            {
-                from: 'static',
-                to: 'static'
+      },
+      // SVGs intended to be React components (named with `.component.svg`)
+      {
+        test: /\.component\.svg$/,
+        use: [
+          {
+            loader: '@svgr/webpack',
+            options: {
+              svgo: true, // Enable SVGO optimization
+              svgoConfig: {
+                plugins: [
+                  {
+                    name: 'removeViewBox',
+                    active: false, // Keep viewBox
+                  },
+                ],
+              },
+              titleProp: true,
             },
-            {
-                from: 'extensions/**',
-                to: 'static',
-                context: 'src/examples'
-            }
+          },
+        ],
+      },
+      // SVGs imported as assets (named with `.asset.svg`)
+      {
+        test: /\.asset\.svg$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/assets/[name].[hash][ext][query]',
+        },
+      },
+      // SVGs imported in CSS or other files
+      {
+        test: /\.svg$/,
+        issuer: /\.(css)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/assets/[name].[hash][ext][query]',
+        },
+      },
+      // Fallback for any other SVG imports
+      {
+        test: /\.svg$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/assets/[name].[hash][ext][query]',
+        },
+      },
+    ],
+  },
+
+  plugins: [
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer'],
+      process: 'process/browser',
+    }),
+
+    new webpack.DefinePlugin({
+      'process.env.DEBUG': JSON.stringify(Boolean(process.env.DEBUG)),
+      'process.env.GA_ID': JSON.stringify(process.env.GA_ID || 'UA-000000-01'),
+      'process.env.GTM_ENV_AUTH': JSON.stringify(process.env.GTM_ENV_AUTH || ''),
+      'process.env.GTM_ID': process.env.GTM_ID
+        ? JSON.stringify(process.env.GTM_ID)
+        : 'null',
+    }),
+
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: 'static',
+          to: 'static',
+        },
+        {
+          from: 'extensions/**',
+          to: 'static',
+          context: 'src/examples',
+        },
+        {
+          from: 'node_modules/scratch-blocks/media',
+          to: 'static/blocks-media/default',
+        },
+        {
+          from: 'node_modules/scratch-blocks/media',
+          to: 'static/blocks-media/high-contrast',
+        },
+        {
+          from: 'src/lib/themes/high-contrast/blocks-media',
+          to: 'static/blocks-media/high-contrast',
+          force: true,
+        },
+        {
+          context: 'node_modules/scratch-vm/dist/web',
+          from: 'extension-worker.{js,js.map}',
+          noErrorOnMissing: true,
+        },
+        {
+          from: 'src/images',
+          to: 'static/images',
+          noErrorOnMissing: true,
+        },
+      ],
+    }),
+  ].concat(
+    isProduction
+      ? []
+      : [
+          new HtmlWebpackPlugin({
+            chunks: ['gui'],
+            template: 'src/playground/index.ejs',
+            title: 'CodePM',
+          }),
+          new HtmlWebpackPlugin({
+            chunks: ['blocksonly'],
+            filename: 'blocks-only.html',
+            template: 'src/playground/index.ejs',
+            title: 'Scratch 3.0 GUI: Blocks Only Example',
+          }),
+          new HtmlWebpackPlugin({
+            chunks: ['compatibilitytesting'],
+            filename: 'compatibility-testing.html',
+            template: 'src/playground/index.ejs',
+            title: 'Scratch 3.0 GUI: Compatibility Testing',
+          }),
+          new HtmlWebpackPlugin({
+            chunks: ['player'],
+            filename: 'player.html',
+            template: 'src/playground/index.ejs',
+            title: 'Scratch 3.0 GUI: Player Example',
+          }),
         ]
-    }));
+  ),
 
-// Skip building `dist/` unless explicitly requested
-// It roughly doubles build time and isn't needed for `scratch-gui` development
-// If you need non-production `dist/` for local dev, such as for `scratch-www` work, you can run something like:
-// `BUILD_MODE=dist npm run build`
-const buildDist = process.env.NODE_ENV === 'production' || process.env.BUILD_MODE === 'dist';
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+    },
+    mergeDuplicateChunks: true,
+    runtimeChunk: 'single',
+  },
 
-module.exports = buildDist ?
-    [buildConfig.get(), distConfig.get()] :
-    buildConfig.get();
+  devServer: isProduction
+    ? undefined
+    : {
+        static: {
+          directory: path.join(__dirname, 'build'),
+        },
+        compress: true,
+        port: process.env.PORT || 8602,
+        historyApiFallback: true,
+        hot: true,
+      },
+
+  devtool: isProduction ? 'source-map' : 'eval-source-map',
+
+  cache: {
+    type: 'filesystem', // Enables persistent caching
+    buildDependencies: {
+      config: [__filename], // Invalidate cache when config changes
+    },
+  },
+
+  stats: {
+    errorDetails: true, // Enable detailed error messages
+  },
+
+  performance: {
+    hints: false,
+  },
+};
